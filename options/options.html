@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AceJump settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header>
+    <img src="../icons/icon48.png" alt="" width="40" height="40">
+    <div>
+      <h1>AceJump for Chrome</h1>
+      <p class="sub">Jump to any visible text, then select it with the keyboard.</p>
+    </div>
+    <span id="status" class="status" aria-live="polite"></span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Shortcut</h2>
+      <p>Current shortcut: <kbd id="shortcut">…</kbd>
+        <button type="button" id="open-shortcuts" class="link">Change shortcut</button></p>
+      <p class="help">Chrome manages extension shortcuts at <code>chrome://extensions/shortcuts</code>. Clicking the toolbar icon also starts a jump.</p>
+      <details>
+        <summary>How it works</summary>
+        <ol class="help">
+          <li>Press the shortcut. Type the text you want to jump to, then press <kbd>Enter</kbd>.</li>
+          <li>Every visible match gets a label. Type the label to jump there (<kbd>Backspace</kbd> edits the query, <kbd>Esc</kbd> cancels).</li>
+          <li>Caret mode starts at the match. Move with <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd> or the arrows, <kbd>w</kbd>/<kbd>b</kbd> by word, <kbd>0</kbd>/<kbd>$</kbd> to the line start/end. Press <kbd>v</kbd> to start selecting, <kbd>V</kbd> to select the line, <kbd>o</kbd> to swap ends, <kbd>y</kbd> to copy, <kbd>Esc</kbd> to leave.</li>
+          <li>In visual mode, press <kbd>s</kbd> or the shortcut again to jump the other end of the selection to another match.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Appearance</h2>
+      <div class="row">
+        <label for="theme">Theme</label>
+        <select id="theme" data-key="theme"></select>
+      </div>
+      <div class="theme-swatches" id="swatches" role="radiogroup" aria-label="Themes"></div>
+      <div class="row">
+        <label for="inputPosition">Input bar position</label>
+        <select id="inputPosition" data-key="inputPosition">
+          <option value="top">Top</option>
+          <option value="center">Center</option>
+          <option value="bottom">Bottom</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="uppercaseLabels">Uppercase labels</label>
+        <input type="checkbox" id="uppercaseLabels" data-key="uppercaseLabels">
+      </div>
+      <h3>Preview</h3>
+      <div id="preview" class="preview"></div>
+    </section>
+
+    <section class="card">
+      <h2>Custom CSS</h2>
+      <p class="help">Added after the theme inside the extension's shadow root, so it overrides the theme and the page can't interfere. Style the classes below or override the <code>--aj-*</code> variables on <code>:host</code>. The preview updates as you type.</p>
+      <textarea id="customCss" data-key="customCss" spellcheck="false" rows="12" placeholder="/* e.g. */&#10;:host { --aj-label-font-size: 14px; --aj-radius: 4px; }&#10;.aj-label { border-radius: 50%; padding: 2px 5px; }&#10;.aj-bar { width: 360px; }"></textarea>
+      <div class="css-actions">
+        <button type="button" id="insert-example">Insert example</button>
+        <button type="button" id="insert-vars">Insert current theme variables</button>
+        <span id="css-size" class="help"></span>
+      </div>
+      <details>
+        <summary>Classes and variables</summary>
+        <div class="ref">
+          <div>
+            <h4>Classes</h4>
+            <ul>
+              <li><code>.aj-bar</code> input bar (<code>[data-position]</code>, <code>[data-mode="input|labels"]</code>, <code>.aj-error</code>)</li>
+              <li><code>.aj-prompt</code> "Jump to" text</li>
+              <li><code>.aj-input</code> text field</li>
+              <li><code>.aj-count</code> match counter</li>
+              <li><code>.aj-match</code> match highlight box</li>
+              <li><code>.aj-label</code> jump label, <code>.aj-typed</code> already typed part</li>
+              <li><code>.aj-caret</code> caret-mode cursor</li>
+              <li><code>.aj-mode</code>, <code>.aj-mode-name</code>, <code>.aj-mode-hint</code> mode indicator</li>
+              <li><code>.aj-toast</code> notifications</li>
+            </ul>
+          </div>
+          <div>
+            <h4>Variables</h4>
+            <ul id="var-list"></ul>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Behaviour</h2>
+      <div class="row">
+        <label for="labelChars">Label characters</label>
+        <input type="text" id="labelChars" data-key="labelChars" spellcheck="false" autocomplete="off">
+      </div>
+      <p class="help">Characters used to build labels. The first ones are used for the shortest labels, so put your home-row keys first. At least 2.</p>
+      <div class="row">
+        <label for="caseMode">Case sensitivity</label>
+        <select id="caseMode" data-key="caseMode">
+          <option value="smart">Smart (sensitive only if the query has uppercase)</option>
+          <option value="insensitive">Always insensitive</option>
+          <option value="sensitive">Always sensitive</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="jumpTarget">Place caret at</label>
+        <select id="jumpTarget" data-key="jumpTarget">
+          <option value="start">Start of match</option>
+          <option value="end">End of match</option>
+          <option value="select">Select the whole match</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="caretMode">Enter caret mode after a jump</label>
+        <input type="checkbox" id="caretMode" data-key="caretMode">
+      </div>
+      <div class="row">
+        <label for="showModeHint">Show key hints in caret mode</label>
+        <input type="checkbox" id="showModeHint" data-key="showModeHint">
+      </div>
+      <div class="row">
+        <label for="autoJumpSingle">Jump immediately if there is only one match</label>
+        <input type="checkbox" id="autoJumpSingle" data-key="autoJumpSingle">
+      </div>
+      <div class="row">
+        <label for="liveHighlight">Highlight matches while typing</label>
+        <input type="checkbox" id="liveHighlight" data-key="liveHighlight">
+      </div>
+      <div class="row">
+        <label for="includeInputs">Search inside text fields</label>
+        <input type="checkbox" id="includeInputs" data-key="includeInputs">
+      </div>
+      <div class="row">
+        <label for="rememberLastQuery">Prefill with the last query</label>
+        <input type="checkbox" id="rememberLastQuery" data-key="rememberLastQuery">
+      </div>
+    </section>
+
+    <section class="card actions">
+      <button type="button" id="reset" class="danger">Reset all settings</button>
+      <button type="button" id="export">Export</button>
+      <button type="button" id="import">Import</button>
+      <input type="file" id="import-file" accept="application/json" hidden>
+    </section>
+  </main>
+
+  <script src="../src/shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
