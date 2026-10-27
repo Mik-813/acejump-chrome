@@ -223,10 +223,15 @@
     if (!body) return [];
     const visCache = new Map();
     const blockCache = new Map();
+    // display:contents elements have no box, so checkVisibility() is always false for them;
+    // judge them by their nearest rendered ancestor instead.
+    const isContents = (e) => getComputedStyle(e).display === 'contents';
     const isVisible = (e) => {
       let v = visCache.get(e);
       if (v === undefined) {
-        v = e.checkVisibility ? e.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true;
+        if (!e.checkVisibility) v = true;
+        else if (isContents(e)) v = e.parentElement && e.parentElement !== document.documentElement ? isVisible(e.parentElement) : true;
+        else v = e.checkVisibility({ opacityProperty: true, visibilityProperty: true });
         visCache.set(e, v);
       }
       return v;
@@ -247,7 +252,7 @@
       acceptNode(node) {
         if (node.nodeType === 1) {
           if (SKIP_TAGS.has(node.tagName.toUpperCase()) || node === host) return NodeFilter.FILTER_REJECT;
-          if (node.checkVisibility && !node.checkVisibility({ opacityProperty: true })) return NodeFilter.FILTER_REJECT;
+          if (node.checkVisibility && !isContents(node) && !node.checkVisibility({ opacityProperty: true })) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_SKIP;
         }
         return NodeFilter.FILTER_ACCEPT;
