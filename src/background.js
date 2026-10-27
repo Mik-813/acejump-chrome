@@ -6,7 +6,7 @@ async function activate(tab) {
   try {
     await chrome.tabs.sendMessage(tab.id, message);
   } catch {
-    // Tab was open before the extension was installed/reloaded: inject on demand.
+    // Not injected yet: activeTab (granted by the shortcut/toolbar click) lets us inject on demand.
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: CONTENT_FILES });
       await chrome.tabs.sendMessage(tab.id, message);

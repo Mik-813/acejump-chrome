@@ -33,12 +33,5 @@
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["src/shared.js", "src/content.js"],
-      "run_at": "document_idle"
-    }
-  ]
+  }
 }

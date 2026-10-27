@@ -78,4 +78,5 @@ Settings sync through `chrome.storage.sync` (about 8 KB per item, which limits t
 - Only text that is currently visible in the viewport is labelled.
 - Caret mode is emulated with the Selection API (extensions can't toggle Chrome's F7 caret browsing), so motions follow Chrome's word and line rules.
 - Works alongside Vimium: while the bar or caret mode is active, AceJump holds keyboard focus in its own hidden field so Vimium passes keys through.
+- AceJump has no standing access to any site. It is injected into a tab only when you press the shortcut or click the toolbar icon, via `activeTab`, so the first activation on a page takes a few milliseconds longer.
 - On `file://` URLs, enable **Allow access to file URLs** in the extension details.
