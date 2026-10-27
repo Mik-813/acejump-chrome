@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AceJump - jump to any visible text with the keyboard",
   "short_name": "AceJump",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Jump to any visible text with the keyboard (AceJump / Vimium style) and select it in caret mode.",
   "icons": {
     "16": "icons/icon16.png",
