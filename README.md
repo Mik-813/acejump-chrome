@@ -1,4 +1,4 @@
-# AceJump for Chrome
+# AceJump
 
 Keyboard jumping for web pages, inspired by the AceJump / MetaJump IDE plugins.
 Search for text, hop to any visible match with a short label, then keep selecting with the keyboard.
