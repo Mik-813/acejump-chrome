@@ -7,7 +7,7 @@
   const MAX_MATCHES = 1500;
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION', 'IFRAME', 'OBJECT', 'SVG', 'CANVAS', 'VIDEO', 'AUDIO', 'HEAD', 'TITLE']);
   const TEXT_INPUT_TYPES = new Set(['', 'text', 'search', 'url', 'email', 'tel', 'number']);
-  const CARET_HINT = 'hjkl/arrows move · w b word · 0 $ line · v visual · y copy · s jump · Esc exit';
+  const CARET_HINT = 'hjkl/arrows move · w b Ctrl+←→ word · 0 $ line · v visual · y copy · s jump · Esc exit';
 
   let settings = { ...DEFAULTS };
   let settingsReady = loadSettings().then((s) => (settings = s));
@@ -25,7 +25,7 @@
   };
 
   // ---------- UI (shadow DOM) ----------
-  let host, shadow, styleEl, root, bar, input, countEl, layer, caretEl, modeEl, toastEl, toastTimer;
+  let host, shadow, styleEl, root, bar, input, countEl, layer, caretEl, modeEl, toastEl, toastTimer, caretSink;
 
   function ensureUi() {
     if (host?.isConnected) return;
@@ -51,14 +51,35 @@
     modeEl.append(el('span', 'aj-mode-name'), el('span', 'aj-mode-hint'));
     toastEl = el('div', 'aj-toast');
     toastEl.hidden = true;
-    root.append(layer, caretEl, bar, modeEl, toastEl);
+    // Focus target during caret mode. Keyboard extensions such as Vimium pass keys through
+    // while a text field is focused; the page selection is unaffected by it.
+    caretSink = el('input', 'aj-sink');
+    Object.assign(caretSink, { type: 'text', tabIndex: -1, readOnly: true });
+    caretSink.setAttribute('aria-hidden', 'true');
+    caretSink.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;';
+    caretSink.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (state.mode === 'caret' && shadow.activeElement !== caretSink && document.hasFocus()) exitCaret();
+      }, 0);
+    });
+    root.append(layer, caretEl, bar, modeEl, toastEl, caretSink);
     shadow.append(styleEl, root);
     (document.documentElement || document.body).append(host);
 
     input.addEventListener('input', onQueryInput);
+    bar.addEventListener('mousedown', (e) => { if (e.target !== input) e.preventDefault(); });
     input.addEventListener('blur', () => {
-      // Keep focus while the bar is open (page scripts sometimes steal it).
-      if (state.mode === 'input' || state.mode === 'labels') setTimeout(() => state.mode !== 'idle' && state.mode !== 'caret' && input.focus({ preventScroll: true }), 0);
+      if (state.mode !== 'input' && state.mode !== 'labels') return;
+      setTimeout(() => {
+        if (state.mode !== 'input' && state.mode !== 'labels') return;
+        const active = document.activeElement;
+        // Window switch: the host keeps document focus, nothing to do.
+        if (active === host && document.hasFocus() === false) return;
+        // Focus dropped to nowhere: something (e.g. Vimium handling Esc) blurred us on purpose.
+        if (!active || active === document.body || active === document.documentElement) { cancel(); return; }
+        // Keep focus while the bar is open (page scripts sometimes steal it).
+        input.focus({ preventScroll: true });
+      }, 0);
     });
   }
 
@@ -443,10 +464,15 @@
     const r = match.range;
     const startEl = r.startContainer.parentElement;
     const editable = startEl?.isContentEditable ? startEl.closest('[contenteditable]:not([contenteditable="false"])') || startEl : null;
+    const useCaret = !editable && settings.caretMode;
     if (editable) editable.focus({ preventScroll: true });
-    else {
-      const active = document.activeElement;
-      if (active && active !== document.body && active !== host) active.blur?.();
+    else if (useCaret) {
+      // Focus first: focusing an element afterwards would clear the page selection.
+      ensureUi();
+      caretSink.focus({ preventScroll: true });
+    } else {
+      const active = deepActiveElement();
+      if (active && active !== document.body) active.blur?.();
     }
 
     const sel = getSelection();
@@ -461,7 +487,7 @@
       sel.collapse(r.startContainer, r.startOffset);
     }
 
-    if (!editable && settings.caretMode) enterCaret(!sel.isCollapsed);
+    if (useCaret) enterCaret(!sel.isCollapsed);
   }
 
   // ---------- caret / visual mode (emulated caret browsing) ----------
@@ -479,6 +505,7 @@
     if (!host) return;
     caretEl.hidden = true;
     if (!keepUiForJump) modeEl.hidden = true;
+    if (shadow.activeElement === caretSink) caretSink.blur();
   }
 
   function updateModeIndicator() {
@@ -605,8 +632,12 @@
     const text = getSelection().toString();
     if (!text) { toast('Nothing selected (press v to select)'); return; }
     let ok = false;
-    try { await navigator.clipboard.writeText(text); ok = true; } catch {}
-    if (!ok) { try { ok = document.execCommand('copy'); } catch {} }
+    try { ok = document.execCommand('copy'); } catch {}
+    if (!ok) {
+      // clipboard.writeText can stay pending forever (e.g. permission prompt), so cap the wait.
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000));
+      try { await Promise.race([navigator.clipboard.writeText(text), timeout]); ok = true; } catch {}
+    }
     exitCaret();
     toast(ok ? `Copied ${text.length} character${text.length === 1 ? '' : 's'}` : 'Copy failed');
   }
@@ -620,9 +651,9 @@
     if (state.mode === 'idle' || e.isComposing) return;
 
     if (state.mode === 'input' || state.mode === 'labels') {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); cancel(); return; }
       if (!isOurInputFocused()) return;
       e.stopImmediatePropagation();
-      if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
       if (e.key === 'Tab') { e.preventDefault(); return; }
       if (state.mode === 'input') {
         if (e.key === 'Enter') { e.preventDefault(); clearTimeout(state.searchTimer); enterLabels(); }
@@ -643,6 +674,12 @@
     }
 
     if (state.mode === 'caret') {
+      if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        moveByWord(e.key === 'ArrowRight' ? 'forward' : 'backward', e.shiftKey);
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return; // let Ctrl+C etc. through
       if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
       e.preventDefault();
@@ -652,8 +689,28 @@
   }
 
   function swallow(e) {
-    if ((state.mode === 'input' || state.mode === 'labels') && isOurInputFocused()) e.stopImmediatePropagation();
-    else if (state.mode === 'caret' && !(e.ctrlKey || e.metaKey || e.altKey)) e.stopImmediatePropagation();
+    if (state.mode === 'input' || state.mode === 'labels') {
+      // Vimium (and similar extensions) swallow the Escape keydown while an input is focused,
+      // so the keyup is the only Escape we see. If the keydown reached us, we're idle by now.
+      if (e.type === 'keyup' && e.key === 'Escape') { e.stopImmediatePropagation(); cancel(); return; }
+      if (isOurInputFocused()) e.stopImmediatePropagation();
+    } else if (state.mode === 'caret' && (!(e.ctrlKey || e.metaKey || e.altKey) || isCtrlArrow(e))) {
+      e.stopImmediatePropagation();
+    }
+  }
+
+  function isCtrlArrow(e) {
+    return e.ctrlKey && !e.metaKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
+  }
+
+  // Ctrl+Left/Right moves by word, with Shift it extends the selection (like in text fields).
+  function moveByWord(direction, extend) {
+    const sel = getSelection();
+    if (!sel.focusNode) return;
+    const alter = extend || state.visual ? 'extend' : 'move';
+    sel.modify(alter, direction, 'word');
+    if (alter === 'extend' && !state.visual) { state.visual = true; updateModeIndicator(); }
+    drawCaret(true);
   }
 
   addEventListener('keydown', onKeyDown, true);
@@ -663,9 +720,19 @@
     if (state.mode === 'caret') exitCaret();
     else if ((state.mode === 'input' || state.mode === 'labels') && !e.composedPath().includes(host)) cancel();
   }, true);
+  // With focus on the sink, native copy would copy the (empty) field, so supply the page selection.
+  addEventListener('copy', (e) => {
+    if (state.mode !== 'caret' || shadow?.activeElement !== caretSink) return;
+    const text = getSelection().toString();
+    if (!text) return;
+    e.clipboardData.setData('text/plain', text);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
   addEventListener('focusin', () => {
     if (state.mode !== 'caret') return;
     const a = deepActiveElement();
+    if (a === caretSink) return;
     if (a && (a.isContentEditable || a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) exitCaret();
   }, true);
 

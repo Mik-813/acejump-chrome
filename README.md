@@ -29,6 +29,7 @@ After jumping into page text the caret is shown and you can move or select with 
 | --- | --- |
 | `h j k l` / arrows | character / line |
 | `w` `e` `b` | next word start / word end / previous word |
+| `Ctrl+Left` `Ctrl+Right` | word left / right; with `Shift` extends the selection |
 | `0` `^` `$` `Home` `End` | line start / end |
 | `(` `)` `{` `}` | sentence / paragraph |
 | `g` `G` | document start / end |
@@ -76,4 +77,5 @@ Settings sync through `chrome.storage.sync` (about 8 KB per item, which limits t
 - Only the top-level document is searched. Text inside iframes and closed shadow roots is skipped.
 - Only text that is currently visible in the viewport is labelled.
 - Caret mode is emulated with the Selection API (extensions can't toggle Chrome's F7 caret browsing), so motions follow Chrome's word and line rules.
+- Works alongside Vimium: while the bar or caret mode is active, AceJump holds keyboard focus in its own hidden field so Vimium passes keys through.
 - On `file://` URLs, enable **Allow access to file URLs** in the extension details.
